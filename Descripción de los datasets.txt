@@ -1,0 +1,40 @@
+Conjunto de datos 1
+El archivo contiene 81 características extraídas de 21263 superconductores, junto con la temperatura crítica en la columna 82.
+
+Las dos últimas columnas contienen la temperatura crítica y la fórmula química. 
+
+Los datos originales provienen de http://supercon.nims.go.jp/index_en.html, que es público. 
+
+El objetivo es predecir la temperatura crítica basándose en las características extraídas.
+
+
+
+Conjunto de datos 2
+El conjunto de datos incluye 103 puntos de datos. Hay 7 variables de entrada y 3 de salida.
+
+
+Variables de entrada (7) (componente en kg en un hormigón M^3):
+
+Cemento
+
+Escoria
+
+Cenizas volantes
+
+Agua
+
+SP
+
+Aglomerado grueso
+
+Aglomerado fino
+
+
+
+Variables de salida (3):
+
+Asentamiento (cm)
+
+Flujo (cm)
+
+Resistencia a la compresión a 28 días (MPa)
