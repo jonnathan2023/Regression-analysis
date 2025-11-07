@@ -1,0 +1,33 @@
+# Modelo 2:
+> cat("RMSE :", round(RMSE_final, 3), "MPa\n")
+RMSE : 2.823 MPa
+> cat("MAE  :", round(MAE_final, 3), "MPa\n")
+MAE  : 2.171 MPa
+> cat("AIC            :", round(AIC_val, 2), "\n")
+AIC            : 391.92 
+> cat("BIC            :", round(BIC_val, 2), "\n")
+BIC            : 408.77 
+> cat("R² ajustado    :", round(R2_adj, 3), "\n")
+R² ajustado    : 0.899 
+> cat("R² predicción  :", round(R2_pred, 3), "\n")
+R² predicción  : 0.884 
+> cat("Cp de Mallows  :", round(Cp_val, 3), "\n")
+# Predicción para Cement = 273.0, `Fly ash` = 105.0, Water = 210.0, `Coarse Aggr.` = 904.0, SP = 9.0
+# 34.15109
+
+########################################################
+# Modelo 1:  
+> cat("RMSE :", round(RMSE_final, 3), "MPa\n")
+RMSE : 2.786 MPa
+> cat("MAE  :", round(MAE_final, 3), "MPa\n")
+MAE  : 2.11 MPa
+> cat("AIC            :", round(AIC_valor, 2), "\n")
+AIC            : 196.91 
+> cat("BIC            :", round(BIC_valor, 2), "\n")
+BIC            : 216.16 
+> cat("R² ajustado    :", round(R2_ajustado, 3), "\n")
+R² ajustado    : 0.899 
+> cat("R² predicción  :", round(R2_pred, 3), "\n")
+R² predicción  : 0.882 
+# Predicción para Cement = 273.0,Slag= 82.0, `Fly ash` = 105.0, Water = 210.0,`Fine Aggr.` = 680.0, SP = 9.0
+# 34.02083

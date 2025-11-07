@@ -1,0 +1,238 @@
+#####################################################################################
+# Segudno Modelo
+#####################################################################################
+
+datos <- Conjunto_2[,-1]
+str(datos)
+library(dplyr)
+datos<- rename(datos, "Y" ="Compressive Strength (28-day)(Mpa)")
+
+###################################
+# Validacion cruzada#####
+###################################
+#Optimista
+set.seed(40)
+ne<- round(0.8 *nrow(datos))
+indices <- sample(103,ne)
+
+me<- datos[indices,] # Entrenar Modelo
+mp<- datos[-indices,] # Probar Modelo
+
+# Se usara los datos me
+m2 <- lm(Y~.,data=me[,-c(8,9)])
+summary(modelo)
+shapiro.test(m2$residuals)
+library(lmtest)
+bptest(m2)
+
+########################################################
+# Analisamos las observaciones influyentes y outlier####
+########################################################
+
+# Outliers 
+# Residuos Estandarizados
+ri <-abs(rstandard(m2)) > 2
+ri[ri==TRUE] # Son valores atipicos y pueden ser puntos influyentes:  31, 34, 51, 78 
+# R. Estunderizados
+ti<- abs(rstudent(m2)) >2
+ti[ti == TRUE]  # Son valores atipicos y pueden ser puntos influyentes : 31, 34, 51, 78 
+# Bonferroni
+library(car)
+outlierTest(m2, cutoff=Inf, n.max=5, order=TRUE)
+# con un alfa de 0.05 no hay observaciones que se puedan considerar outlier estadisticamente
+
+# Influyentes
+# Matriz H ####
+hii<-hatvalues(m2)
+sum(hii)
+2*8/103 > 1
+r<- abs(hii) >2*8/103
+r[r==TRUE]
+# Distancia De Cook ####
+cooks.distance(m2)
+di<- cooks.distance(m2) > 1
+di[di==TRUE]
+Di <- cooks.distance(m2) > qf(0.05, 5, 95)
+Di[Di==TRUE]
+# Puntos influyentes: 31 y 51 para el B globales
+
+#DFBETAS ####
+DFB<-dfbeta(m2)
+DFBE<-abs(DFB[,-1]) >2/sqrt(100)
+which(apply(DFBE,1,sum)==2) # No hay puntos influyentes para los Bj por individual
+
+# DFFITS ####
+DFFI <-abs(dffits(m2)) > 2*sqrt(5/100)
+DFFI[DFFI==TRUE] # Las observaciones son puntos influyentes en la prediccion del modelo, 
+
+# Covratio ####
+c1<- covratio(m2) > 1 + 3*5/100
+c2<- covratio(m2) < 1 - 3*5/100
+c1[c1== TRUE] # puntos influyentes en la presicion del modelo
+c2[c2== TRUE] # puntos influyentes en la presicion del modelo
+
+########################################
+# Seleccionamos Variables ##############
+########################################
+
+
+###################################
+#Método de mejores subconjuntos####
+###################################
+
+library(olsrr)
+res<-ols_step_all_possible(m2)
+#Con el RMSE
+which.min(res$result[,6])
+res$result[127,] # Cement + Slag + `Fly ash` + Water + SP + `Coarse Aggr.` + `Fine Aggr.`
+
+#Con el AIC 
+which.min(res$result[,9])
+res$result[99,] # Cement + `Fly ash` + Water + SP + `Coarse Aggr.`
+
+#Con el R2 pred 
+which.max(res$result[,7])
+res$result[99,] # Cement + `Fly ash` + Water + SP + `Coarse Aggr.`
+
+#Con el RMSE
+which.min(res$result[,6])
+res$result[127,] # Cement + Slag + `Fly ash` + Water + SP + `Coarse Aggr.` + `Fine Aggr.`
+#Con el MSE
+which.min(res$result[,12])
+res$result[99,] # Cement + `Fly ash` + Water + SP + `Coarse Aggr.`
+
+#Con el BIC
+which.min(res$result[,10])
+res$result[99,] # Cement + `Fly ash` + Water + SP + `Coarse Aggr.`
+
+
+################################
+#Método por pasos (Stepwise)####
+################################
+
+#Backward
+step(m2,trace=T,direction="backward") # Cement + `Fly ash` + Water + SP + `Coarse Aggr.`
+
+#Forward
+horizonte <- formula(Y ~ Cement + Slag + `Fly ash` + Water + SP + `Coarse Aggr.` + `Fine Aggr.`)
+modelo0 <- lm(Y ~ 1, data = me[,-c(8,9)])
+step(modelo0, trace = T, direction = "forward", scope = horizonte) # Cement + `Fly ash` + Water + `Coarse Aggr.` + SP
+
+#Both
+step(modelo0, trace=T, direction="both", scope=horizonte) # Cement + `Fly ash` + Water + `Coarse Aggr.` + SP
+
+# En la gran mayoria de lo metodos por pasos coinciden con el mismo modelo y ademas que coinciden con el metodo de mejores subconjuntos
+m2f <- lm(Y~ Cement + `Fly ash` + Water + `Coarse Aggr.` + SP,data=me[,-c(8,9)])
+shapiro.test(m2f$residuals)
+bptest(m2f)
+
+#########################################
+# Medir la multicolinealidad #########
+######################################
+library(car)
+vif(m2f)
+m2f <- lm(Y~ Cement + `Fly ash` + Water + `Coarse Aggr.` + SP,data=me[,-c(8,9)]) #Se usara ese modelo de ahora en adelante
+# No hay multicolinealidad
+
+###################################
+# Supuestos                    ####
+###################################
+shapiro.test(m2f$residuals)
+bptest(m2f)
+dwtest(m2f, alternative = "t")
+
+#######################
+# Predicción ##########
+#######################
+nueva_mezcla <- data.frame(
+  Cement = 273.0,
+  `Fly ash` = 105.0,
+  Water = 210.0,
+  `Coarse Aggr.` = 904.0,
+  SP = 9.0,
+  check.names = FALSE
+)
+
+predict(m2f, newdata = nueva_mezcla, interval = "prediction")
+
+###################################################################
+# Validación del Modelo                                        ####
+###################################################################
+m2f <- lm(Y~ Cement + `Fly ash` + Water + `Coarse Aggr.` + SP,data=me[,-c(8,9)])
+
+# ---------------------------------------------------------------------
+# Cargar y preparar los datos
+# ---------------------------------------------------------------------
+# Eliminar solo SLUMP y FLOW (columnas 8 y 9)
+datos_modelo <- datos[,-c(8, 9)]
+
+# ---------------------------------------------------------------------
+# Validación hold-out repetida (1000 veces)
+# ---------------------------------------------------------------------
+set.seed(40)
+n <- nrow(datos_modelo)
+ne <- round(0.8 * n)
+R <- 1000
+MSE_vec <- numeric(R)
+MAE_vec <- numeric(R)
+
+for (i in 1:R) {
+  idx <- sample(n, ne)
+  me_i <- datos_modelo[idx, ]
+  mp_i <- datos_modelo[-idx, ]
+  
+  # Ajustar modelo
+  modelo_i <- lm(Y ~ Cement + `Fly ash` + Water + `Coarse Aggr.` + SP, data = me_i)
+  
+  # Predecir
+  pred_i <- predict(modelo_i, newdata = mp_i)
+  real_i <- mp_i$Y
+  
+  # Métricas en escala original
+  errores <- pred_i - real_i
+  MSE_vec[i] <- mean(errores^2)
+  MAE_vec[i] <- mean(abs(errores))
+}
+
+# Resultados de validación cruzada
+RMSE_cv <- sqrt(mean(MSE_vec))
+MAE_cv  <- mean(MAE_vec)
+
+# ---------------------------------------------------------------------
+# Ajustar modelo final en el conjunto de entrenamiento completo (me)
+# ---------------------------------------------------------------------
+# Para obtener AIC, BIC, R² ajustado, etc., usamos el modelo ajustado en "me"
+set.seed(40)
+indices_inicial <- sample(n, ne)
+me <- datos_modelo[indices_inicial, ]
+
+m2f <- lm(Y ~ Cement + `Fly ash` + Water + `Coarse Aggr.` + SP, data = me)
+
+# Indicadores del modelo ajustado
+AIC_val  <- AIC(m2f)
+BIC_val  <- BIC(m2f)
+R2_adj   <- summary(m2f)$adj.r.squared
+
+library(olsrr)
+R2_pred  <- ols_pred_rsq(m2f)
+
+# Para Cp de Mallows, comparamos con el modelo completo con las mismas variables
+# (en este caso, m2f ya es el modelo a evaluar)
+# Usamos ols_step_all_possible para obtener Cp
+modelo_completo_aux <- lm(Y ~ Cement + `Fly ash` + Water + `Coarse Aggr.` + SP, data = me)
+res_all <- ols_step_all_possible(modelo_completo_aux)
+Cp_val <- res_all$result[res_all$result$N == 5, "Mallow's Cp"]  # 5 variables predictoras
+
+# ---------------------------------------------------------------------
+# Resultados finales
+# ---------------------------------------------------------------------
+cat("=== RESULTADOS DE VALIDACIÓN (1000 repeticiones, semilla = 40) ===\n")
+cat("RMSE :", round(RMSE_cv, 3), "MPa\n")
+cat("MAE  :", round(MAE_cv, 3), "MPa\n\n")
+
+cat("=== INDICADORES ADICIONALES (modelo ajustado en entrenamiento) ===\n")
+cat("AIC            :", round(AIC_val, 2), "\n")
+cat("BIC            :", round(BIC_val, 2), "\n")
+cat("R² ajustado    :", round(R2_adj, 3), "\n")
+cat("R² predicción  :", round(R2_pred, 3), "\n")
+cat("Cp de Mallows  :", round(Cp_val, 3), "\n")
