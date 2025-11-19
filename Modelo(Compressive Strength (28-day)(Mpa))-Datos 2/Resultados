@@ -31,3 +31,18 @@ R² ajustado    : 0.899
 R² predicción  : 0.882 
 # Predicción para Cement = 273.0,Slag= 82.0, `Fly ash` = 105.0, Water = 210.0,`Fine Aggr.` = 680.0, SP = 9.0
 # 34.02083
+
+########################################################
+# Modelo 3: 
+> cat("RMSE :", round(RMSE_final, 3), "MPa\n")
+RMSE : 2.795 MPa
+> cat("MAE  :", round(MAE_final, 3), "MPa\n")
+MAE  : 2.134 MPa
+> cat("AIC            :", round(AIC_valor, 2), "\n")
+AIC            : 173.73 
+> cat("BIC            :", round(BIC_valor, 2), "\n")
+BIC            : 192.99 
+> cat("R² ajustado    :", round(R2_ajustado, 3), "\n")
+R² ajustado    : 0.899 
+> cat("R² predicción  :", round(R2_pred, 3), "\n")
+R² predicción  : 0.881 
