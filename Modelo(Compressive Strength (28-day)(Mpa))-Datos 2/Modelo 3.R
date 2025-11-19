@@ -19,7 +19,7 @@ me<- datos[indices,] # Entrenar Modelo
 mp<- datos[-indices,] # Probar Modelo
 
 # Se usara los datos me
-m1 <- lm(Y~.,data=me[,-c(8,9)])
+m3 <- lm(Y~.,data=me[,-c(8,9)])
 anova(m1)
 shapiro.test(m1$residuals)
 library(lmtest)
@@ -52,8 +52,8 @@ shapiro.test(modelo$residuals)
 ######################################
 library(car)
 vif(modelo)
-m1x6 <- lm(Y~Cement + Slag +`Fly ash`+Water + SP + FA_CA,data=me[,-c(6:9)]) #Se usara ese modelo de ahora en adelante
-vif(m1x6) # No hay multicolinealidad con: Cement Slag `Fly ash` Water SP `Fine Aggr.
+m3x6 <- lm(Y~Cement + Slag +`Fly ash`+Water + SP + FA_CA,data=me[,-c(6:9)]) #Se usara ese modelo de ahora en adelante
+vif(m3x6) # No hay multicolinealidad con: Cement Slag `Fly ash` Water SP `Fine Aggr.
 
 ###################################################################
 # Transformación                                               ####
@@ -61,7 +61,7 @@ vif(m1x6) # No hay multicolinealidad con: Cement Slag `Fly ash` Water SP `Fine A
 
 # Como no se cumple la normalidad en el modelo m1x6f, se realizara una transformación
 library(car)
-box<-boxCox(m1x6, lambda = seq(-2, 2, by = 0.1)) # Prueba de valores
+box<-boxCox(m3x6, lambda = seq(-2, 2, by = 0.1)) # Prueba de valores
 lambda<-box$x[which.max(box$y)] # Valor de λ optimo
 
 ybox<-(me$Y^lambda-1)/lambda # Transformación de Y
@@ -73,43 +73,43 @@ m1x6f <- lm(ybox ~ Cement + Slag +`Fly ash`+Water + SP + FA_CA,data=me[,-c(6:10)
 
 # Outliers 
 # Residuos Estandarizados
-ri <-abs(rstandard(m1x6f)) > 2
+ri <-abs(rstandard(m3x6f)) > 2
 ri[ri==TRUE] # Son valores atipicos y pueden ser puntos influyentes:  31, 34, 51, 78 
 # R. Estunderizados
-ti<- abs(rstudent(m1x6f)) >2
+ti<- abs(rstudent(m3x6f)) >2
 ti[ti == TRUE]  # Son valores atipicos y pueden ser puntos influyentes : 31, 34, 51, 57, 78 
 # Bonferroni
 library(car)
-outlierTest(m1x6f, cutoff=Inf, n.max=5, order=TRUE) # 78
+outlierTest(m3x6f, cutoff=Inf, n.max=5, order=TRUE) # 78
 # con un alfa de 0.05 no hay observaciones que se puedan considerar outlier estadisticamente
 
 # Influyentes
 # Matriz H ####
-hii<-hatvalues(m1x6f)
+hii<-hatvalues(m3x6f)
 sum(hii)
 2*5/100 > 1
 r<- abs(hii) >2*(7)/nrow(me)
 r[r==TRUE]
 # Distancia De Cook ####
-cooks.distance(m1x6f)
-di<- cooks.distance(m1x6f) > 1
+cooks.distance(m3x6f)
+di<- cooks.distance(m3x6f) > 1
 di[di==TRUE]
-Di <- cooks.distance(m1x6f) > qf(0.05, 5, 95)
+Di <- cooks.distance(m3x6f) > qf(0.05, 5, 95)
 Di[Di==TRUE]
 # Puntos influyentes: 31 y 51 para el B globales
 
 #DFBETAS ####
-DFB<-dfbeta(m1x6f)
+DFB<-dfbeta(m3x6f)
 DFBE<-abs(DFB[,-1]) >2/sqrt(100)
 which(apply(DFBE,1,sum)==2) # No hay puntos influyentes para los Bj por individual
 
 # DFFITS ####
-DFFI <-abs(dffits(m1x6f)) > 2*sqrt(5/100)
+DFFI <-abs(dffits(m3x6f)) > 2*sqrt(5/100)
 DFFI[DFFI==TRUE] # Las observaciones son puntos influyentes en la prediccion del modelo, 
 
 # Covratio ####
-c1<- covratio(m1x6f) > 1 + 3*5/100
-c2<- covratio(m1x6f) < 1 - 3*5/100
+c1<- covratio(m3x6f) > 1 + 3*5/100
+c2<- covratio(m3x6f) < 1 - 3*5/100
 c1[c1== TRUE] # puntos influyentes en la presicion del modelo
 c2[c2== TRUE] # puntos influyentes en la presicion del modelo
 
@@ -135,14 +135,13 @@ res$result[63,] # Cement + Slag + `Fly ash` + Water + SP + FA_CA
 #Con el R2 pred 
 which.max(res$result[,7])
 res$result[63,]# Cement + Slag + `Fly ash` + Water + SP + FA_CA
-m1x6_63<- lm(ybox~ Cement + Slag +`Fly ash` +Water +SP +`Fine Aggr.`,data=me[,-c(6,8,9)])
 
 ################################
 #Método por pasos (Stepwise)####
 ################################
 
 #Backward
-step(m1x6f,trace=T,direction="backward") # Cement + Slag + `Fly ash` + Water + SP + FA_CA
+step(m3x6f,trace=T,direction="backward") # Cement + Slag + `Fly ash` + Water + SP + FA_CA
 #Forward
 horizonte <- formula(ybox ~  Cement + Slag + `Fly ash` + Water + SP + FA_CA)
 modelo0 <- lm(ybox ~ 1, data = me[,-c(6:10)])
@@ -151,12 +150,12 @@ step(modelo0, trace = T, direction = "forward", scope = horizonte) #Cement + Sla
 #Both
 step(modelo0, trace=T, direction="both", scope=horizonte) #Cement + Slag + `Fly ash` + Water + SP + FA_CA
 # En los 3 metodos por pasos coinciden con el mismo modelo y ademas coincide con el metodo de mejores subconjuntos
-m1f <- lm(ybox~ Cement + Slag + `Fly ash` + Water + SP + FA_CA,data=me[,-c(6:10)])
-shapiro.test(m1f$residuals)
-bptest(m1f)
+m3f <- lm(ybox~ Cement + Slag + `Fly ash` + Water + SP + FA_CA,data=me[,-c(6:10)])
+shapiro.test(m3f$residuals)
+bptest(m3f)
 
 ###################################################################
-# Validación del Modelo m1f                                      ####
+# Validación del Modelo m3f                                      ####
 ###################################################################
 
 library(car)
@@ -185,7 +184,7 @@ indices_inicial <- sample(n_total, ne)
 me <- datos_modelo[indices_inicial, ]
 
 # Ajustar modelo sin transformar para obtener lambda
-m1_raw <- lm(Y ~ Cement + Slag + `Fly ash` + Water + SP + FA_CA, data = me)
+m3_raw <- lm(Y ~ Cement + Slag + `Fly ash` + Water + SP + FA_CA, data = me)
 
 box <- boxCox(m1_raw, lambda = seq(-2, 2, by = 0.1))
 lambda <- box$x[which.max(box$y)]
@@ -196,7 +195,7 @@ ybox <- (me$Y^lambda - 1) / lambda
 me$ybox <- ybox
 
 # Ajustar modelo transformado m1f
-m1f <- lm(ybox ~ Cement + Slag + `Fly ash` + Water + SP + FA_CA, data = me)
+m3f <- lm(ybox ~ Cement + Slag + `Fly ash` + Water + SP + FA_CA, data = me)
 
 # ---------------------------------------------------------------------
 # FUNCIÓN DE TRANSFORMACIÓN INVERSA
@@ -261,10 +260,10 @@ cat("MAE  :", round(MAE_final, 3), "MPa\n")
 # INDICADORES ADICIONALES DEL MODELO AJUSTADO
 # ---------------------------------------------------------------------
 
-AIC_valor <- AIC(m1f)
-BIC_valor <- BIC(m1f)
-R2_ajustado <- summary(m1f)$adj.r.squared
-R2_pred <- ols_pred_rsq(m1f)
+AIC_valor <- AIC(m3f)
+BIC_valor <- BIC(m3f)
+R2_ajustado <- summary(m3f)$adj.r.squared
+R2_pred <- ols_pred_rsq(m3f)
 
 ols_all <- ols_step_all_possible(m1f)
 Cp_mejor <- min(ols_all$result[,"Mallow's Cp"])
