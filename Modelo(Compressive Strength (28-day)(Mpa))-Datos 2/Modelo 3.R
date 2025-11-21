@@ -1,115 +1,86 @@
 #####################################################################################
-# Tercer Modelo 
+# Tercer Modelo v2
 #####################################################################################
 
 datos <- Conjunto_2[,-1]
 str(datos)
 library(dplyr)
-datos<- rename(datos, "Y" ="Compressive Strength (28-day)(Mpa)")
-
-###################################
-# Validacion cruzada#####
-###################################
-#Optimista
-set.seed(40)
-ne<- round(0.8 *nrow(datos))
-indices <- sample(103,ne)
-
-me<- datos[indices,] # Entrenar Modelo
-mp<- datos[-indices,] # Probar Modelo
+me<- rename(datos, "Y" ="Compressive Strength (28-day)(Mpa)")
 
 # Se usara los datos me
-m3 <- lm(Y~.,data=me[,-c(8,9)])
-anova(m1)
-shapiro.test(m1$residuals)
+m <- lm(Y~.,data=me[,-c(8,9)])
+summary(modelo)
+shapiro.test(m$residuals)
 library(lmtest)
-bptest(m1)
-#########################################
-# Reespecificación de las varibales #########
-######################################
-library(GGally)
-ggpairs(datos[,-c(8,9)])
-
-# Relación agua/cemento (W/C)
-# Porque Water correlaciona con Cement, Slag y Fly as
-me$WC <- me$Water / me$Cement
-
-# Binder total (ligante total): Cement + Slag + Fly ash
-# Esto reduce la multicolinealidad entre Cement–Slag–Fly ash.
-me$Binder <- me$Cement + me$Slag + me$`Fly ash`
-
-# Relación Fine / Coarse Aggregates
-# Correlación de –0.602 indica multicolinealidad fuerte entre ambos → reemplázalos.
-me$FA_CA <- me$`Fine Aggr.` / me$`Coarse Aggr.`
-# Dosis relativa de superplastificante
-# Dado que SP correlaciona con Cement (+0.307), lo reemplazas por SP/Cement.
-me$SPC <- me$SP / me$Cement
-
-modelo <- lm(Y~ Cement + Slag +`Fly ash`+Water + SP + FA_CA,data=me[,-c(6:9)])
-shapiro.test(modelo$residuals)
-#########################################
-# Medir la multicolinealidad #########
-######################################
-library(car)
-vif(modelo)
-m3x6 <- lm(Y~Cement + Slag +`Fly ash`+Water + SP + FA_CA,data=me[,-c(6:9)]) #Se usara ese modelo de ahora en adelante
-vif(m3x6) # No hay multicolinealidad con: Cement Slag `Fly ash` Water SP `Fine Aggr.
-
+bptest(m)
 ###################################################################
 # Transformación                                               ####
 ###################################################################
+#--------------------------------------------------------------
+# Renombrar variables con espacios o puntos 
+names(me) <- gsub(" ", "_", names(me))        # Reemplaza espacios por guiones bajos
+names(me) <- gsub("\\.", "", names(me))       # Elimina puntos (opcional)
 
-# Como no se cumple la normalidad en el modelo m1x6f, se realizara una transformación
+# O manualmente:
+names(me)[names(me) == "Fly ash"] <- "Fly_ash"
+names(me)[names(me) == "Fine Aggr."] <- "Fine_Aggr"
+# Ejecutar
+residualPlots(m)
+# Regresar a los nombres originales a las variables
+#---------------------------------------------------------------------------- 
+m3_1 <- lm(Y ~ Cement + Slag +`Fly ash`+ I(Water^2) + SP+ `Fine Aggr.`+ `Coarse Aggr.`, data = me[,-c(8,9)])
+vif(m3_1)
+m3 <- lm(Y ~ Cement + Slag +`Fly ash`+ I(Water^2) + SP+ `Fine Aggr.`, data = me[,-c(8,9)])
+
+# Como no se cumple la normalidad en el modelo m3, se realizara una transformación
 library(car)
-box<-boxCox(m3x6, lambda = seq(-2, 2, by = 0.1)) # Prueba de valores
+box<-boxCox(m3, lambda = seq(-2, 2, by = 0.1)) # Prueba de valores
 lambda<-box$x[which.max(box$y)] # Valor de λ optimo
 
-ybox<-(me$Y^lambda-1)/lambda # Transformación de Y
-m1x6f <- lm(ybox ~ Cement + Slag +`Fly ash`+Water + SP + FA_CA,data=me[,-c(6:10)])
-
-
+ybox<-(me$Y^lambda-1)/lambda 
+m3b <- lm(ybox ~ Cement + Slag +`Fly ash`+ I(Water^2) + SP+ `Fine Aggr.`, data = me[,-c(8,9,10)])
 ########################################################
 # Analisamos las observaciones influyentes y outlier####
-
+########################################################
+## MODIFICAR m2b POR m3b
 # Outliers 
 # Residuos Estandarizados
-ri <-abs(rstandard(m3x6f)) > 2
-ri[ri==TRUE] # Son valores atipicos y pueden ser puntos influyentes:  31, 34, 51, 78 
+ri <-abs(rstandard(m3b)) > 2 
+ri[ri==TRUE] # Son valores atipicos y pueden ser puntos influyentes:  33, 36
 # R. Estunderizados
-ti<- abs(rstudent(m3x6f)) >2
-ti[ti == TRUE]  # Son valores atipicos y pueden ser puntos influyentes : 31, 34, 51, 57, 78 
+ti<- abs(rstudent(m3b)) >2
+ti[ti == TRUE]  # Son valores atipicos y pueden ser puntos influyentes : 33, 66
 # Bonferroni
 library(car)
-outlierTest(m3x6f, cutoff=Inf, n.max=5, order=TRUE) # 78
-# con un alfa de 0.05 no hay observaciones que se puedan considerar outlier estadisticamente
+outlierTest(m3b, cutoff=Inf, n.max=5, order=TRUE)
 
 # Influyentes
 # Matriz H ####
-hii<-hatvalues(m3x6f)
+hii<-hatvalues(m3b)
 sum(hii)
-2*5/100 > 1
-r<- abs(hii) >2*(7)/nrow(me)
+2*7/103 > 1
+r<- abs(hii) >2*7/103
 r[r==TRUE]
 # Distancia De Cook ####
-cooks.distance(m3x6f)
-di<- cooks.distance(m3x6f) > 1
+cooks.distance(m3b)
+di<- cooks.distance(m3b) > 1
 di[di==TRUE]
-Di <- cooks.distance(m3x6f) > qf(0.05, 5, 95)
+Di <- cooks.distance(m3b) > qf(0.05, 5, 95)
 Di[Di==TRUE]
 # Puntos influyentes: 31 y 51 para el B globales
 
 #DFBETAS ####
-DFB<-dfbeta(m3x6f)
+DFB<-dfbeta(m3b)
 DFBE<-abs(DFB[,-1]) >2/sqrt(100)
 which(apply(DFBE,1,sum)==2) # No hay puntos influyentes para los Bj por individual
 
 # DFFITS ####
-DFFI <-abs(dffits(m3x6f)) > 2*sqrt(5/100)
+DFFI <-abs(dffits(m3b)) > 2*sqrt(5/100)
 DFFI[DFFI==TRUE] # Las observaciones son puntos influyentes en la prediccion del modelo, 
 
 # Covratio ####
-c1<- covratio(m3x6f) > 1 + 3*5/100
-c2<- covratio(m3x6f) < 1 - 3*5/100
+c1<- covratio(m3b) > 1 + 3*5/100
+c2<- covratio(m3b) < 1 - 3*5/100
 c1[c1== TRUE] # puntos influyentes en la presicion del modelo
 c2[c2== TRUE] # puntos influyentes en la presicion del modelo
 
@@ -117,160 +88,148 @@ c2[c2== TRUE] # puntos influyentes en la presicion del modelo
 # Seleccionamos Variables ##############
 ########################################
 
+  ################################
+  #Método por pasos (Stepwise)####
+  ################################
+  
+  #Backward
+  step(m3b,trace=T,direction="backward") # Cement + Slag + `Fly ash` + + I(Water^2) +SP + `Fine Aggr.`
+  
+  #Forward
+  horizonte <- formula(ybox ~ Cement + Slag +`Fly ash`+ I(Water^2) + SP+ `Fine Aggr.`)
+  modelo0 <- lm(ybox ~ 1,data=me[,-c(6,8,9,10)])
+  step(modelo0, trace = T, direction = "forward", scope = horizonte) # Cement + Slag + `Fly ash` + + I(Water^2) +SP + `Fine Aggr.`
+  
+  #Both
+  step(modelo0, trace=T, direction="both", scope=horizonte) # Cement + Slag + `Fly ash` + + I(Water^2) +SP + `Fine Aggr.`
+  
+  # Como resultado tenemos tres posibles
+  m3_1 <- lm(ybox ~ Cement + Slag + `Fly ash` + + I(Water^2) +SP + `Fine Aggr.`,data=me[,-c(6,8,9,10)])
 
-###################################
-#Método de mejores subconjuntos####
-###################################
-
-library(olsrr)
-res<-ols_step_all_possible(m1x6f)
-#Con el RMSE
-which.min(res$result[,6])
-res$result[63,] # Cement + Slag + `Fly ash` + Water + SP + FA_CA
-
-#Con el AIC 
-which.min(res$result[,9])
-res$result[63,] # Cement + Slag + `Fly ash` + Water + SP + FA_CA
-
-#Con el R2 pred 
-which.max(res$result[,7])
-res$result[63,]# Cement + Slag + `Fly ash` + Water + SP + FA_CA
-
-################################
-#Método por pasos (Stepwise)####
-################################
-
-#Backward
-step(m3x6f,trace=T,direction="backward") # Cement + Slag + `Fly ash` + Water + SP + FA_CA
-#Forward
-horizonte <- formula(ybox ~  Cement + Slag + `Fly ash` + Water + SP + FA_CA)
-modelo0 <- lm(ybox ~ 1, data = me[,-c(6:10)])
-step(modelo0, trace = T, direction = "forward", scope = horizonte) #Cement + Slag + `Fly ash` + Water + SP + FA_CA
-
-#Both
-step(modelo0, trace=T, direction="both", scope=horizonte) #Cement + Slag + `Fly ash` + Water + SP + FA_CA
-# En los 3 metodos por pasos coinciden con el mismo modelo y ademas coincide con el metodo de mejores subconjuntos
-m3f <- lm(ybox~ Cement + Slag + `Fly ash` + Water + SP + FA_CA,data=me[,-c(6:10)])
-shapiro.test(m3f$residuals)
-bptest(m3f)
-
-###################################################################
-# Validación del Modelo m3f                                      ####
-###################################################################
+#########################################
+# Medir la multicolinealidad #########
+######################################
+library(car)
+# Modelo m2_1
+vif(m3_1) # No hay multicolinealidad alta
+m3f <- lm(ybox~ Cement + Slag + `Fly ash` + + I(Water^2) +SP + `Fine Aggr.`,data=me[,-c(6,8,9,10)])
+################
+# Supuestos ####
+################
+shapiro.test(m3f$residuals) # 0.165
+bptest(m3f) # 0.2347
+summary(m3f)
+_##########################################################################
+# VALIDACIÓN CRUZADA REALISTA (1000 repeticiones) PARA EL MODELO m3f
+##########################################################################
 
 library(car)
 library(lmtest)
 library(olsrr)
-library(caret)
 library(dplyr)
 
-# Renombrar la variable respuesta
-datos <- rename(Conjunto_2[,-1], Y = "Compressive Strength (28-day)(Mpa)")
+#-------------------------------
+# Preparar los datos
+#-------------------------------
+datos <- Conjunto_2[,-1]
+datos <- rename(datos, Y = "Compressive Strength (28-day)(Mpa)")
 
-# Crear FA_CA
-datos$FA_CA <- datos$`Fine Aggr.` / datos$`Coarse Aggr.`
+# Usar mismo subconjunto que tu modelo
+datos_modelo <- datos[,-c(8,9)]   
+# Columnas disponibles:
+# Cement, Slag, Fly ash, Water, SP, Coarse Aggr., Fine Aggr., Y
 
-# Eliminar SLUMP (6), FLOW (8), COARSE (9) y FINE (7, porque lo reemplaza FA_CA)
-datos_modelo <- datos[, c("Cement","Slag","Fly ash","Water","SP","FA_CA","Y")]
+#-------------------------------
+# Calcular lambda del Box–Cox
+#-------------------------------
+m_box <- lm(Y ~ Cement + Slag + `Fly ash` + Water + SP + `Fine Aggr.`,
+            data = datos_modelo)
 
-# ---------------------------------------------------------------------
-# AJUSTE INICIAL PARA OBTENER LAMBDA
-# ---------------------------------------------------------------------
-set.seed(40)
-n_total <- nrow(datos_modelo)
-ne <- round(0.8 * n_total)
-indices_inicial <- sample(n_total, ne)
-
-me <- datos_modelo[indices_inicial, ]
-
-# Ajustar modelo sin transformar para obtener lambda
-m3_raw <- lm(Y ~ Cement + Slag + `Fly ash` + Water + SP + FA_CA, data = me)
-
-box <- boxCox(m1_raw, lambda = seq(-2, 2, by = 0.1))
+box <- boxCox(m_box, lambda = seq(-2, 2, by = 0.1))
 lambda <- box$x[which.max(box$y)]
-lambda
 
-# Transformar la variable respuesta Y → ybox
-ybox <- (me$Y^lambda - 1) / lambda
-me$ybox <- ybox
-
-# Ajustar modelo transformado m1f
-m3f <- lm(ybox ~ Cement + Slag + `Fly ash` + Water + SP + FA_CA, data = me)
-
-# ---------------------------------------------------------------------
-# FUNCIÓN DE TRANSFORMACIÓN INVERSA
-# ---------------------------------------------------------------------
-transformacion_inversa <- function(y_trans, lambda) {
-  if (abs(lambda) > 1e-6) {
-    (lambda * y_trans + 1)^(1 / lambda)
+#-------------------------------
+# Transformación inversa
+#-------------------------------
+inv_boxcox <- function(y, lambda){
+  if(abs(lambda) > 1e-6){
+    (lambda*y + 1)^(1/lambda)
   } else {
-    exp(y_trans)
+    exp(y)
   }
 }
 
-# ---------------------------------------------------------------------
-# VALIDACIÓN HOLD-OUT REPETIDA (1000 ITERACIONES)
-# ---------------------------------------------------------------------
+#-------------------------------
+# VALIDACIÓN CRUZADA REALISTA
+#-------------------------------
 set.seed(40)
 R <- 1000
+n <- nrow(datos_modelo)
+ne <- round(0.8*n)
+
 MSE_vec <- numeric(R)
 MAE_vec <- numeric(R)
 
-for (i in 1:R) {
+for(i in 1:R){
   
-  # Separación aleatoria
-  idx <- sample(n_total, ne)
+  # Partición 80/20
+  idx <- sample(n, ne)
   me_i <- datos_modelo[idx, ]
   mp_i <- datos_modelo[-idx, ]
   
-  # Transformar Y en entrenamiento
-  y_trans_i <- if (abs(lambda) > 1e-6) {
-    (me_i$Y^lambda - 1) / lambda
-  } else {
-    log(me_i$Y)
-  }
+  # Transformación Box–Cox
+  me_i$ybox <- (me_i$Y^lambda - 1)/lambda
   
-  me_i$ybox <- y_trans_i
-  
-  # Ajustar modelo m1f
-  mod_i <- lm(ybox ~ Cement + Slag + `Fly ash` + Water + SP + FA_CA, data = me_i)
+  # Ajustar modelo final m3f
+  mod_i <- lm(
+    ybox ~ Cement + Slag + `Fly ash` + I(Water^2) + SP + `Fine Aggr.`,
+    data = me_i
+  )
   
   # Predicción en escala transformada
   pred_trans <- predict(mod_i, newdata = mp_i)
   
-  # Transformar a escala original
-  pred_original <- transformacion_inversa(pred_trans, lambda)
+  # Predicciones en escala original
+  pred_original <- inv_boxcox(pred_trans, lambda)
   real_original <- mp_i$Y
   
   # Errores
-  errores <- pred_original - real_original
-  MSE_vec[i] <- mean(errores^2)
-  MAE_vec[i] <- mean(abs(errores))
+  err <- pred_original - real_original
+  
+  MSE_vec[i] <- mean(err^2)
+  MAE_vec[i] <- mean(abs(err))
 }
 
-# Resultados
 RMSE_final <- sqrt(mean(MSE_vec))
 MAE_final  <- mean(MAE_vec)
 
-cat("=== RESULTADOS DE VALIDACIÓN (1000 repeticiones) ===\n")
-cat("RMSE :", round(RMSE_final, 3), "MPa\n")
-cat("MAE  :", round(MAE_final, 3), "MPa\n")
+cat("==============================================\n")
+cat(" VALIDACIÓN CRUZADA REALISTA (1000 repeticiones)\n")
+cat("==============================================\n")
+cat("RMSE :", round(RMSE_final, 3), "\n")
+cat("MAE  :", round(MAE_final, 3), "\n")
 
-# ---------------------------------------------------------------------
-# INDICADORES ADICIONALES DEL MODELO AJUSTADO
-# ---------------------------------------------------------------------
+#-------------------------------
+# Indicadores adicionales
+#-------------------------------
+
+# Ajustar modelo final con TODOS los datos
+datos_modelo$ybox <- (datos_modelo$Y^lambda - 1)/lambda
+
+m3f <- lm(
+  ybox ~ Cement + Slag + `Fly ash` + I(Water^2) + SP + `Fine Aggr.`,
+  data = datos_modelo
+)
 
 AIC_valor <- AIC(m3f)
 BIC_valor <- BIC(m3f)
-R2_ajustado <- summary(m3f)$adj.r.squared
-R2_pred <- ols_pred_rsq(m3f)
+R2_adj <- summary(m3f)$adj.r.squared
+R2_pred <- ols_pred_rsq(m3f)  # PRESS
 
-ols_all <- ols_step_all_possible(m1f)
-Cp_mejor <- min(ols_all$result[,"Mallow's Cp"])
+cat("\n========== INDICADORES ADICIONALES ==========\n")
+cat("AIC           :", round(AIC_valor, 3), "\n")
+cat("BIC           :", round(BIC_valor, 3), "\n")
+cat("R² ajustado   :", round(R2_adj, 3), "\n")
+cat("R² predicción :", round(R2_pred, 3), "\n")
 
-cat("\n=== INDICADORES ADICIONALES ===\n")
-cat("AIC            :", round(AIC_valor, 2), "\n")
-cat("BIC            :", round(BIC_valor, 2), "\n")
-cat("R² ajustado    :", round(R2_ajustado, 3), "\n")
-cat("R² predicción  :", round(R2_pred, 3), "\n")
-cat("Cp de Mallows  :", round(Cp_mejor, 3), "\n")
+
